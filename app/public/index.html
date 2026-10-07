@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Resume Screening Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f27;--mu:#667085;--bd:#e3e6eb;--ac:#2f5bea;--g:#12804a;--y:#a86400;--r:#c0362c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13161b;--card:#1c2027;--tx:#eceff4;--mu:#9aa3b2;--bd:#2c323c;--ac:#7c9bff;--g:#4cc38a;--y:#e0a43c;--r:#ff7b70}}
+:root[data-theme="dark"]{--bg:#13161b;--card:#1c2027;--tx:#eceff4;--mu:#9aa3b2;--bd:#2c323c;--ac:#7c9bff;--g:#4cc38a;--y:#e0a43c;--r:#ff7b70}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,Segoe UI,sans-serif}
+nav{display:flex;gap:4px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--bd);overflow-x:auto;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+nav b{margin-right:14px;align-self:center}nav button{border:0;background:none;color:var(--mu);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--ac);color:#fff}main{max-width:1000px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.k{font-size:28px;font-weight:700}.mu{color:var(--mu)}
+h2{margin:0 0 10px;font-size:17px}label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
+input,select,textarea,button.b{font:inherit;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);width:100%}
+button.b{width:auto;background:var(--ac);color:#fff;border:0;cursor:pointer;margin:6px 6px 0 0}button.b.s{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.sc{overflow-x:auto}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);white-space:nowrap}tr.c{cursor:pointer}tr.c:hover{background:var(--bg)}
+.t{padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid currentColor}.SHORTLIST{color:var(--g)}.REVIEW{color:var(--y)}.REJECT,.FAILED{color:var(--r)}
+.bar{height:8px;background:var(--bd);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+.note{background:var(--bg);border-left:3px solid var(--y);padding:8px 12px;border-radius:6px;margin-bottom:14px;font-size:13px}
+#dr{position:fixed;inset:0;background:#0008;display:none;z-index:9}#dr>div{background:var(--card);max-width:640px;height:100%;margin-left:auto;overflow:auto;padding:18px}
+.ev{border:1px solid var(--bd);border-radius:8px;padding:8px;margin:6px 0;font-size:13px}.ev q{display:block;color:var(--mu);margin-top:3px}
+.hide{display:none}
+</style></head><body>
+<nav><b>🎯 ScreenIQ</b><button data-t="dash">Dashboard</button><button data-t="job">Job</button><button data-t="src">Resume Sources</button><button data-t="res">Ranked Results</button><button style="margin-left:auto" onclick="sb.auth.signOut().then(()=>location.reload())">Sign out</button></nav>
+<main><div class="note">Assistive first-level screening — not a hiring decision. Recruiters make the final call. Gender, age, religion, caste, race, marital status, photo, nationality and political views are never used in scoring.</div><div id="v"></div></main>
+<div id="dr"><div id="dc"></div></div>
+<script>
+const NOW=(()=>{const d=new Date();return d.getFullYear()*12+d.getMonth()})(),MO='jan feb mar apr may jun jul aug sep oct nov dec'.split(' ');
+const T={Python:['python'],FastAPI:['fastapi','fast api'],PostgreSQL:['postgresql','postgres','postgre sql'],Docker:['docker'],Kubernetes:['kubernetes','k8s'],AWS:['aws','amazon web services'],Java:['java'],Django:['django'],Flask:['flask'],React:['react','reactjs'],SQL:['sql'],Redis:['redis']};
+const REL={FastAPI:['Django','Flask'],Docker:['Kubernetes'],Kubernetes:['Docker'],Django:['FastAPI','Flask']};
+const PROTECTED=['gender','age','religion','caste','race','marital_status','photo','nationality','political_views'];
+const aliases=s=>T[s]||[s.toLowerCase()];
+const find=(txt,s)=>{for(const a of aliases(s)){const m=txt.match(new RegExp('(?<![\\w])'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\w+#])','i'));if(m)return{a,m:m[0]}}return null};
+const snip=(txt,s)=>{const l=txt.split('\n').find(x=>find(x,s));return l?l.trim().slice(0,120):''};
+const pd=(s,end)=>{s=s.trim().toLowerCase();if(/present|current|till|ongoing/.test(s))return NOW;let m=s.match(/([a-z]{3})[a-z]*\.?\s*['’]?(\d{2,4})/);if(m){let y=+m[2];if(y<100)y+=2000;return Math.min(NOW,y*12+MO.indexOf(m[1]))}m=s.match(/(\d{1,2})\/(\d{4})/);if(m)return Math.min(NOW,+m[2]*12+ +m[1]-1);m=s.match(/(\d{4})/);return m?Math.min(NOW,+m[1]*12+(end?11:0)):null};
+const DR=/((?:[A-Za-z]{3,9}\.?\s*['’]?\d{2,4})|\d{1,2}\/\d{4}|\d{4})\s*(?:-|–|to)\s*(present|current|till date|ongoing|(?:[A-Za-z]{3,9}\.?\s*['’]?\d{2,4})|\d{1,2}\/\d{4}|\d{4})/i;
+const merge=iv=>{iv=iv.slice().sort((a,b)=>a[0]-b[0]);const o=[];for(const x of iv){const l=o[o.length-1];if(l&&x[0]<=l[1])l[1]=Math.max(l[1],x[1]);else o.push([...x])}return o.reduce((s,x)=>s+x[1]-x[0],0)/12};
+function extract(text){
+ if(!text||text.length<40||(text.match(/[^\x09\x0a\x0d\x20-\x7e]/g)||[]).length/text.length>.1)throw Error('Text extraction failed: unreadable or scanned file (OCR disabled)');
+ const sec={};let cur='head';sec[cur]=[];
+ for(const l of text.split('\n')){const h=l.trim().match(/^(skills|technical skills|experience|work experience|professional experience|employment history|education|projects|certifications)\s*:?$/i);if(h){cur=/skill/i.test(h[1])?'skills':/exp|employ/i.test(h[1])?'exp':h[1].toLowerCase();sec[cur]=[]}else sec[cur].push(l)}
+ const head=sec.head.join('\n'),roles=[];
+ const bl=[];for(const l of (sec.exp||[])){if(DR.test(l))bl.push(l);else if(bl.length)bl[bl.length-1]+='\n'+l}
+ for(const b of bl){const m=b.match(DR);const s=pd(m[1]),e=pd(m[2],1);if(s!=null&&e!=null&&e>=s)roles.push({title:b.trim().split('\n')[0].slice(0,70),iv:[s,e],text:b})}
+ const ed=(sec.education||[]).join(' ');const lv=/ph\.?d|doctor/i.test(ed)?4:/master|m\.?tech|mba|m\.?sc/i.test(ed)?3:/bachelor|b\.?tech|b\.?e\b|b\.?sc|bca/i.test(ed)?2:/diploma/i.test(ed)?1:0;
+ return{name:head.trim().split('\n')[0].trim(),email:(head.match(/[\w.+-]+@[\w-]+\.[\w.]+/)||[])[0]||null,phone:(head.match(/\+?\d[\d\s-]{8,}\d/)||[])[0]||null,
+  roles,total:merge(roles.map(r=>r.iv)),lv,edu:ed.trim().slice(0,80)||null,skillsTxt:(sec.skills||[]).join(' '),full:text}}
+function skillRow(c,s,type,mand){
+ const rs=c.roles.filter(r=>find(r.text,s));
+ if(rs.length){const f=find(rs[0].text,s);return{type:'skill',name:s,mand,match:f.m.toLowerCase()===s.toLowerCase()?'EXACT':(f.a===aliases(s)[0]?'NORMALIZED':'ALIAS'),credit:1,ev:snip(rs[0].text,s),loc:'Experience: '+rs[0].title,yrs:merge(rs.map(r=>r.iv)),conf:.95}}
+ if(find(c.full,s))return{type:'skill',name:s,mand,match:'UNVERIFIED',credit:.5,ev:snip(c.full,s),loc:'Skills list (no role evidence)',conf:.6};
+ const sug=(REL[s]||[]).filter(x=>find(c.full,x));
+ return{type:'skill',name:s,mand,match:'MISSING',credit:0,ev:sug.length?'Suggestion only (no credit): has '+sug.join(', '):'',loc:'—',conf:1}}
+function screen(c,J){
+ const rows=[],cat={};
+ J.req.forEach(s=>rows.push(skillRow(c,s,'skill',1)));J.pref.forEach(s=>rows.push(skillRow(c,s,'skill',0)));
+ const rq=rows.filter(r=>r.mand),pf=rows.filter(r=>!r.mand),avg=a=>a.reduce((s,r)=>s+r.credit,0)/a.length;
+ if(rq.length)cat['Required skills']=[30,avg(rq)];
+ if(J.minYears>0){const ok=c.total>=J.minYears;rows.push({type:'experience',name:`Total experience ≥ ${J.minYears}y`,mand:1,match:ok?'EXACT':'MISSING',credit:Math.min(1,c.total/J.minYears),ev:`Merged non-overlapping employment: ${c.total.toFixed(1)} years`,loc:'Experience',conf:.9});cat['Relevant experience']=[25,Math.min(1,c.total/J.minYears)]}
+ if(pf.length)cat['Preferred skills']=[10,avg(pf)];
+ if(J.edu>0){const ok=c.lv>=J.edu;rows.push({type:'education',name:'Degree level',mand:1,match:ok?'EXACT':'MISSING',credit:ok?1:0,ev:c.edu||'',loc:'Education',conf:.8});cat['Education']=[5,ok?1:0]}
+ const W=Object.values(cat).reduce((s,x)=>s+x[0],0)||1;let score=0;const br={};
+ for(const[k,[w,v]]of Object.entries(cat)){br[k]=Math.round(v*100);score+=w/W*v*100}
+ score=Math.round(score);const fail=rows.filter(r=>r.mand&&r.match==='MISSING'),unv=rows.filter(r=>r.mand&&r.match==='UNVERIFIED');
+ let rec=score>=J.sl?'SHORTLIST':score>=J.rv?'REVIEW':'REJECT',why=[];
+ if(fail.length){why.push('Hard requirement failed: '+fail.map(r=>r.name).join(', '));if(rec==='SHORTLIST')rec='REVIEW'}
+ if(unv.length){why.push('Unverified mandatory skill (no role evidence): '+unv.map(r=>r.name).join(', '));if(rec==='SHORTLIST'||(rec==='REJECT'&&!fail.length))rec='REVIEW'}
+ return{score,rec,rows,br,why,skills:rows.filter(r=>r.mand&&r.match==='MISSING').map(r=>r.name)}}
+/* ---- data ---- */
+const R=(n,e,sk,roles,ed)=>`${n}\n${e} | +91 98765 4${Math.floor(Math.random()*9000+1000)}0 | Chennai\nSKILLS\n${sk}\nEXPERIENCE\n${roles}\nEDUCATION\n${ed}`;
+const SAMPLES=[
+['asha_rao.txt',R('Asha Rao','asha@mail.com','Python, FastAPI, PostgreSQL, Docker, AWS','Senior Engineer, Acme Corp | Jan 2019 - Present\n- Built APIs with Python and FastAPI on PostgreSQL; deployed with Docker on AWS\n\nFreelance Developer | Mar 2020 - Dec 2020\n- Python scripts and Postgres reporting\n\nDeveloper, Beta Ltd | Jun 2016 - Dec 2018\n- Python services, PostgreSQL tuning','B.Tech Computer Science, Anna University, 2016')],
+['vikram_s.txt',R('Vikram S','vikram@mail.com','Python, Django, Postgres, Docker','Backend Engineer, Gamma Inc | Feb 2021 - Present\n- Django REST services in Python, Postgres, Docker','B.E Information Technology, 2020')],
+['meena_k.txt',R('Meena K','meena@mail.com','Python, FastAPI, PostgreSQL, AWS','Software Engineer, Delta | 2019 - 2024\n- Maintained internal tooling and reports in Python and SQL scripts','B.Sc Computer Science, 2018')],
+['rohan_p.txt',R('Rohan P','rohan@mail.com','Java, Spring, SQL, Kubernetes','Senior Developer, Omega | Apr 2015 - Present\n- Java microservices on Kubernetes','M.Tech Software Engineering, 2015')],
+['priya_n.txt',R('Priya N','priya@mail.com','Python, FastAPI, PostgreSQL, Docker','Junior Engineer, Zeta | Mar 2025 - Present\n- FastAPI services in Python with PostgreSQL, Docker','B.Tech Computer Science, 2024')],
+['corrupt_scan.pdf','\u0000\u0001\u00ff\u00fe\u0003\u0004binary-garbage\u00ff\u00fe\u00ff\u00fe\u00ff\u00fe\u00ff\u00fe\u00ff\u00fe\u00ff\u00fe\u00ff\u00fe']];
+const NEW=['karthik_m.txt',R('Karthik M','karthik@mail.com','Python, FastAPI, PostgreSQL, Docker, AWS, Redis','Staff Engineer, Sigma | Jan 2018 - Present\n- Python and FastAPI APIs on PostgreSQL, Docker on AWS','M.Tech Computer Science, 2017')];
+const S={job:{title:'Senior Backend Engineer',req:['Python','FastAPI','PostgreSQL'],pref:['Docker','AWS'],minYears:3,edu:0,sl:80,rv:60},res:[],log:[],tab:'dash',flt:'ALL',n:0};
+const ev=t=>S.log.unshift(new Date().toLocaleTimeString()+' · '+t);
+function add(name,text){const r={id:++S.n,name,status:'QUEUED',history:[]};S.res.push(r);ev('resume_detected: '+name);ev('processing_started: '+name);
+ try{r.c=extract(text);ev('text_extracted: '+name);ev('candidate_created: '+r.c.name);r.status='COMPLETED'}catch(e){r.status='FAILED';r.err=e.message;ev('processing_failed: '+name+' — '+e.message)}
+ if(r.c)rescreen(r);dbSave(r,text)}
+const rescreen=r=>{r.res=screen(r.c,S.job);ev('screening_completed: '+r.c.name+' → '+(r.ov?r.ov.rec+' (override)':r.res.rec))};
+const rescreenAll=()=>{S.run=null;S.res.forEach(r=>{if(r.c){r.res=screen(r.c,S.job);dbResult(r)}});ev('screening_started: new run on '+S.res.filter(r=>r.c).length+' stored candidates (no re-parse)')};
+const fin=r=>r.ov?r.ov.rec:r.res.rec,ok=()=>S.res.filter(r=>r.c);
+/* ---- views ---- */
+const V=document.getElementById('v'),esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));V.innerHTML=({dash,job,src,res})[S.tab]()}
+function dash(){const c=ok(),n=k=>c.filter(r=>fin(r)===k).length,miss={};c.forEach(r=>r.res.skills.forEach(s=>miss[s]=(miss[s]||0)+1));
+ const top=Object.entries(miss).sort((a,b)=>b[1]-a[1]);
+ return`<div class="grid"><div class="card"><div class="k">${S.res.length}</div><span class="mu">Resumes detected</span></div><div class="card"><div class="k SHORTLIST">${n('SHORTLIST')}</div><span class="mu">Shortlist</span></div><div class="card"><div class="k REVIEW">${n('REVIEW')}</div><span class="mu">Review</span></div><div class="card"><div class="k REJECT">${n('REJECT')}</div><span class="mu">Reject</span></div><div class="card"><div class="k REJECT">${S.res.filter(r=>r.status==='FAILED').length}</div><span class="mu">Failed documents</span></div></div>
+ <div class="card"><h2>Top missing requirements</h2>${top.map(([s,v])=>`<div>${s} <span class="mu">${v} candidates</span><div class="bar"><i style="width:${v/c.length*100}%"></i></div></div>`).join('')||'<span class="mu">None</span>'}</div>
+ <div class="card"><h2>Live activity</h2>${S.log.slice(0,10).map(l=>`<div class="mu">${esc(l)}</div>`).join('')||'<span class="mu">Add resumes in Resume Sources.</span>'}</div>`}
+function job(){const J=S.job,i=(k,l,t='text')=>`<div><label>${l}</label><input id="j_${k}" type="${t}" value="${esc(Array.isArray(J[k])?J[k].join(', '):J[k])}"></div>`;
+ return`<div class="card"><h2>Job profile</h2><div class="row">${i('title','Title')}${i('req','Mandatory skills (hard, comma-separated)')}${i('pref','Preferred skills (soft)')}${i('minYears','Min total experience (years, hard)','number')}
+ <div><label>Required degree level (hard)</label><select id="j_edu">${['None','Diploma','Bachelor','Master','PhD'].map((x,k)=>`<option value="${k}" ${J.edu===k?'selected':''}>${x}</option>`).join('')}</select></div>${i('sl','Shortlist threshold','number')}${i('rv','Review threshold','number')}</div>
+ <button class="b" onclick="saveJob()">Save &amp; re-screen all</button><p class="mu">Semantic job-fit (20%) is not computed in this prototype, so weights are re-normalised across defined criteria. Mandatory skills can never be satisfied by semantic matches.</p></div>`}
+function saveJob(){const g=k=>document.getElementById('j_'+k).value,l=k=>g(k).split(',').map(x=>x.trim()).filter(Boolean);
+ Object.assign(S.job,{title:g('title'),req:l('req'),pref:l('pref'),minYears:+g('minYears'),edu:+g('edu'),sl:+g('sl'),rv:+g('rv')});dbJob().then(()=>{rescreenAll();S.tab='res';render()})}
+function src(){return`<div class="card"><h2>Resume source — simulated folder</h2><p class="mu">Mode: watch continuously · D:\\Recruitment\\Resumes</p>
+ <button class="b" onclick="SAMPLES.forEach(x=>add(...x));render()">Scan folder (6 files incl. 1 corrupt)</button><button class="b s" onclick="add(...NEW);render()">Drop new resume into folder</button>
+ <label>Select a folder from your computer (reads every resume inside it, including subfolders)</label><input type="file" webkitdirectory directory multiple onchange="up(this)">
+ <label>Or select individual files</label><input type="file" accept=".txt,.pdf,.doc,.docx" multiple onchange="up(this)"></div>
+ <div class="card sc"><h2>Processing queue</h2><table><tr><th>File</th><th>Status</th><th>Detail</th></tr>${S.res.map(r=>`<tr><td>${esc(r.name)}</td><td><span class="t ${r.status}">${r.status}</span></td><td class="mu">${esc(r.err||r.c.name+' · '+r.c.total.toFixed(1)+'y')}</td></tr>`).join('')||'<tr><td class="mu" colspan="3">No files yet</td></tr>'}</table></div>`}
+async function readFile(f){const n=f.name.toLowerCase();if(n.endsWith('.txt'))return f.text();
+ if(n.endsWith('.docx'))return(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
+ if(n.endsWith('.pdf')){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const d=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let t='';
+  for(let p=1;p<=d.numPages;p++){const c=await(await d.getPage(p)).getTextContent();let y=null;for(const it of c.items){if(y!==null&&Math.abs(it.transform[5]-y)>2)t+='\n';t+=it.str+' ';y=it.transform[5]}t+='\n'}return t}
+ throw Error('Legacy .doc needs LibreOffice conversion on the backend')}
+async function up(i){for(const f of i.files){if(!/\.(txt|pdf|docx?)$/i.test(f.name))continue;try{add(f.name,await readFile(f))}catch(e){S.res.push({id:++S.n,name:f.name,status:'FAILED',history:[],err:e.message});ev('processing_failed: '+f.name+' — '+e.message)}}i.value='';render()}
+function res(){const rows=ok().sort((a,b)=>b.res.score-a.res.score).filter(r=>S.flt==='ALL'||fin(r)===S.flt);
+ return`<div class="card sc"><h2>Ranked candidates — ${esc(S.job.title)}</h2><select style="width:auto" onchange="S.flt=this.value;render()">${['ALL','SHORTLIST','REVIEW','REJECT'].map(x=>`<option ${S.flt===x?'selected':''}>${x}</option>`).join('')}</select>
+ <table><tr><th>#</th><th>Candidate</th><th>Score</th><th>Exp</th><th>Status</th><th>Missing</th></tr>${rows.map((r,i)=>`<tr class="c" onclick="open_(${r.id})"><td>${i+1}</td><td>${esc(r.c.name)}</td><td>${r.res.score}</td><td>${r.c.total.toFixed(1)}y</td><td><span class="t ${fin(r)}">${fin(r)}${r.ov?' ✎':''}</span></td><td class="mu">${esc(r.res.skills.join(', ')||'—')}</td></tr>`).join('')||'<tr><td class="mu" colspan="6">Nothing here — scan a folder first.</td></tr>'}</table></div>`}
+function open_(id){const r=S.res.find(x=>x.id===id),x=r.res;document.getElementById('dr').style.display='block';
+ document.getElementById('dc').innerHTML=`<button class="b s" onclick="closeD()">✕ Close</button><h2>${esc(r.c.name)} <span class="t ${fin(r)}">${fin(r)}</span></h2><div class="mu">${esc(r.c.email||'no email')} · ${esc(r.c.phone||'no phone')} · ${r.c.total.toFixed(1)}y merged experience · ${esc(r.c.edu||'education not found')}</div>
+ <h2 style="margin-top:14px">Score ${x.score}/100 <span class="mu">(AI: ${x.rec})</span></h2>${Object.entries(x.br).map(([k,v])=>`<div>${k} <span class="mu">${v}%</span><div class="bar"><i style="width:${v}%"></i></div></div>`).join('')}
+ ${x.why.map(w=>`<div class="note" style="margin-top:8px">${esc(w)}</div>`).join('')}<h2 style="margin-top:14px">Evidence</h2>
+ ${x.rows.map(e=>`<div class="ev"><b>${esc(e.name)}</b> ${e.mand?'· mandatory':'· preferred'} <span class="t ${e.match==='MISSING'?'REJECT':e.match==='UNVERIFIED'?'REVIEW':'SHORTLIST'}">${e.match}</span> <span class="mu">conf ${Math.round(e.conf*100)}%${e.yrs?' · '+e.yrs.toFixed(1)+'y with skill':''}</span><q>${esc(e.ev||'No evidence found')} <i>— ${esc(e.loc)}</i></q></div>`).join('')}
+ <h2 style="margin-top:14px">Recruiter override</h2><select id="ovr"><option>SHORTLIST</option><option>REVIEW</option><option>REJECT</option></select><label>Reason (required)</label><input id="ovn"><button class="b" onclick="ovr(${id})">Save override</button>
+ ${r.history.map(h=>`<div class="mu">${esc(h)}</div>`).join('')}`}
+function ovr(id){const r=S.res.find(x=>x.id===id),n=document.getElementById('ovn').value.trim();if(!n)return alert('A reason is required.');
+ r.ov={rec:document.getElementById('ovr').value,why:n};r.history.push(`${new Date().toLocaleTimeString()} · ${r.res.rec} → ${r.ov.rec}: ${n}`);ev('override: '+r.c.name+' → '+r.ov.rec);dbOverride(r);closeD();render()}
+const closeD=()=>document.getElementById('dr').style.display='none';
+document.getElementById('dr').onclick=e=>{if(e.target.id==='dr')closeD()};
+document.querySelector('nav').onclick=e=>{if(e.target.dataset.t){S.tab=e.target.dataset.t;render()}};
+/* ---- Supabase persistence + auth ---- */
+const sb=supabase.createClient('https://iuuxveypjwdanhncslzz.supabase.co','sb_publishable_WHyyOS2fJ1cQ0l9lCjerpw_uTh8L36p');
+const q=async p=>{const{data,error}=await p;if(error)throw error;return data},fail=e=>console.error(e)||alert('Save failed: '+(e.message||e));
+const audit=(a,e,id,d)=>sb.from('audit_log').insert({action:a,entity:e,entity_id:String(id||''),detail:d||null});
+async function dbJob(){try{const J=S.job,row={title:J.title,min_experience_years:J.minYears,required_education_level:J.edu,shortlist_threshold:J.sl,review_threshold:J.rv,status:'Active'};
+ if(J.id){J.v=(J.v||1)+1;await q(sb.from('job_profiles').update({...row,version:J.v}).eq('id',J.id));await q(sb.from('job_requirements').delete().eq('job_id',J.id))}
+ else{J.v=1;J.id=(await q(sb.from('job_profiles').insert(row).select('id').single())).id}
+ await q(sb.from('job_requirements').insert([...J.req.map(n=>({job_id:J.id,kind:'skill',name:n,is_hard:true,job_version:J.v})),...J.pref.map(n=>({job_id:J.id,kind:'skill',name:n,is_hard:false,job_version:J.v}))]));audit('job_saved','job_profiles',J.id,{version:J.v})}catch(e){fail(e)}}
+async function dbSave(r,text){try{r.rid=(await q(sb.from('resumes').insert({file_name:r.name,processing_status:r.status,error_message:r.err||null,raw_text:r.c?text:null,size_bytes:text?text.length:0}).select('id').single())).id;
+ if(r.c){r.cid=(await q(sb.from('candidates').insert({full_name:r.c.name,email:r.c.email,phone:r.c.phone,total_experience_years:r.c.total,education_level:r.c.lv,extractor_version:'browser-1'}).select('id').single())).id;
+  await q(sb.from('resumes').update({candidate_id:r.cid}).eq('id',r.rid));
+  const sk=(r.res?r.res.rows:[]).filter(x=>x.type==='skill'&&x.match!=='MISSING');if(sk.length)await q(sb.from('candidate_skills').insert(sk.map(x=>({candidate_id:r.cid,skill_name:x.name,verified:x.match!=='UNVERIFIED',years:x.yrs||null,source_section:x.loc,evidence_text:x.ev,confidence:x.conf}))));
+  await dbResult(r)}audit('resume_processed','resumes',r.rid,{status:r.status})}catch(e){fail(e)}}
+async function dbResult(r){try{if(!r.cid)return;if(!S.job.id)await dbJob();
+ if(!S.run)S.run=(await q(sb.from('screening_runs').insert({job_id:S.job.id,job_version:S.job.v||1,screening_engine_version:'browser-1',status:'COMPLETED'}).select('id').single())).id;
+ const x=r.res;r.resId=(await q(sb.from('screening_results').insert({run_id:S.run,candidate_id:r.cid,score:x.score,recommendation:x.rec,breakdown:x.br,reasons:x.why}).select('id').single())).id;
+ await q(sb.from('screening_evidence').insert(x.rows.map(e=>({screening_result_id:r.resId,requirement_type:e.type,requirement_name:e.name,match_type:e.match,match_score:e.credit,candidate_evidence:e.ev,source_location:e.loc,confidence:e.conf,explanation:e.mand?'mandatory':'preferred'}))))}catch(e){fail(e)}}
+async function dbOverride(r){try{if(!r.resId)await dbResult(r);await q(sb.from('recruiter_overrides').insert({screening_result_id:r.resId,ai_recommendation:r.res.rec,recruiter_decision:r.ov.rec,reason:r.ov.why}));audit('override','screening_results',r.resId,{to:r.ov.rec})}catch(e){fail(e)}}
+async function load(){try{const j=(await q(sb.from('job_profiles').select('*,job_requirements(*)').order('created_at',{ascending:false}).limit(1)))[0];
+ if(j){const rq=j.job_requirements.filter(x=>x.kind==='skill');S.job={id:j.id,v:j.version,title:j.title,req:rq.filter(x=>x.is_hard).map(x=>x.name),pref:rq.filter(x=>!x.is_hard).map(x=>x.name),minYears:+j.min_experience_years||0,edu:j.required_education_level||0,sl:j.shortlist_threshold,rv:j.review_threshold}}
+ const ov={};(await q(sb.from('recruiter_overrides').select('recruiter_decision,reason,created_at,screening_results(candidate_id)').order('created_at'))).forEach(o=>{if(o.screening_results)ov[o.screening_results.candidate_id]=o});
+ for(const x of await q(sb.from('resumes').select('*').order('created_at'))){const o={id:++S.n,rid:x.id,cid:x.candidate_id,name:x.file_name,status:x.processing_status,err:x.error_message,history:[]};
+  if(x.raw_text){try{o.c=extract(x.raw_text);o.res=screen(o.c,S.job);const d=ov[x.candidate_id];if(d){o.ov={rec:d.recruiter_decision,why:d.reason};o.history.push(new Date(d.created_at).toLocaleString()+' · override → '+d.recruiter_decision+': '+d.reason)}}catch(e){}}S.res.push(o)}}catch(e){fail(e)}}
+function authView(m=''){document.querySelector('nav').style.display='none';V.innerHTML=`<div class="card" style="max-width:380px;margin:30px auto"><h2>Sign in</h2><label>Email</label><input id="em" type="email" autocomplete="username"><label>Password (min 6 chars)</label><input id="pw" type="password" autocomplete="current-password"><button class="b" onclick="signIn(0)">Sign in</button><button class="b s" onclick="signIn(1)">Create account</button><p class="mu">${esc(m)}</p><p class="mu">The first account created becomes Admin.</p></div>`}
+async function signIn(up){const c={email:em.value.trim(),password:pw.value},{data,error}=await(up?sb.auth.signUp(c):sb.auth.signInWithPassword(c));if(error)return authView(error.message);if(!data.session)return authView('Account created. Confirm via the email link, then sign in.');location.reload()}
+async function boot(){const{data}=await sb.auth.getSession();if(!data.session)return authView();await load();render()}
+boot();
+</script></body></html>
